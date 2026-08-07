@@ -1,0 +1,179 @@
+name: Erdos 218 Production-Pinned Comparator Replay
+
+on:
+  push:
+    branches:
+      - "chatgpt/erdos218-fast"
+    paths:
+      - ".github/workflows/erdos218-pinned-comparator.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: erdos218-pinned-comparator
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  replay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install task Lean 4.27.0 and recover isolated candidate
+        shell: bash
+        run: |
+          set -euxo pipefail
+          curl -sSf https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh \
+            | sh -s -- -y --default-toolchain leanprover/lean4:v4.27.0
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+          "$HOME/.elan/bin/lean" --version
+          python3 - <<'PY'
+          from pathlib import Path
+          import textwrap
+
+          source = Path('.github/workflows/erdos218-fast-comparator.yml').read_text()
+          marker = "          cat > Main.lean <<'LEAN'\n"
+          start = source.index(marker) + len(marker)
+          end = source.index("\n          LEAN", start)
+          Path('Main.lean').write_text(textwrap.dedent(source[start:end]) + "\n")
+          PY
+
+      - name: Run exact pinned static policy
+        shell: bash
+        run: |
+          set -euxo pipefail
+          git clone --filter=blob:none https://github.com/conjectures-io/conjectures-validator.git validator
+          git -C validator checkout bcda2bde517b829a8b44ea2a387d78674f7e6495
+          curl -sSfL \
+            https://raw.githubusercontent.com/conjectures-io/conjectures-tasks/e0b5bee2973deb6600cf11727106fe0866a4c625/pool/tier-1/erdos-218-variants-ge-formalized/manifest.json \
+            -o manifest.json
+          python3 - <<'PY'
+          import json
+          import pathlib
+          import sys
+          sys.path.insert(0, str(pathlib.Path('validator').resolve()))
+          from verifier.models import TaskManifest
+          from verifier.static_checks import check_submission
+          manifest = TaskManifest.from_dict(json.loads(pathlib.Path('manifest.json').read_text()))
+          result = check_submission(pathlib.Path('Main.lean').read_text(), manifest)
+          print(result)
+          if not result.valid:
+              raise SystemExit('static policy rejected candidate')
+          PY
+
+      - name: Build exact focused Formal Conjectures dependency
+        shell: bash
+        run: |
+          set -euxo pipefail
+          git clone --filter=blob:none https://github.com/google-deepmind/formal-conjectures.git formal-conjectures
+          git -C formal-conjectures checkout 379fc0298dc146df549e7061c3ede0353a5bb51f
+          cd formal-conjectures
+          lake update
+          lake exe cache get
+          lake build 'FormalConjectures.ErdosProblems.«218»'
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('lakefile.toml')
+          text = path.read_text()
+          marker = '\n[[lean_lib]]\nname = "FormalConjecturesAnswerPostpone"\n'
+          next_section = '\n\n[[lean_exe]]\n'
+          before, remainder = text.split(marker, 1)
+          _removed, after = remainder.split(next_section, 1)
+          path.write_text(before + next_section + after)
+          PY
+
+      - name: Build exact pinned exporter and Comparator without updating manifests
+        shell: bash
+        run: |
+          set -euxo pipefail
+          git clone --filter=blob:none https://github.com/leanprover/lean4export.git lean4export
+          git -C lean4export checkout 590dec59d93ab6becdf16fdd8aee5abbb99cb856
+          (cd lean4export && lake env lean --version && lake build lean4export)
+
+          git clone --filter=blob:none https://github.com/leanprover/comparator.git comparator
+          git -C comparator checkout 68a064109f01c08f47c8edc9f51d6a2bbffaa188
+          (
+            cd comparator
+            printf 'Comparator toolchain: '; cat lean-toolchain
+            python3 - <<'PY'
+          import json
+          from pathlib import Path
+          manifest = json.loads(Path('lake-manifest.json').read_text())
+          print('Comparator manifest lean4export rev:', manifest['packages'][0]['rev'])
+          PY
+            lake env lean --version
+            lake build comparator
+            lake env lean --version
+          )
+
+      - name: Replay through production-pinned Comparator
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir cmp-workspace
+          curl -sSfL \
+            https://raw.githubusercontent.com/conjectures-io/conjectures-validator/bcda2bde517b829a8b44ea2a387d78674f7e6495/lean/TaskSupport.lean \
+            -o cmp-workspace/TaskSupport.lean
+          cat > cmp-workspace/Challenge.lean <<'LEAN'
+          import FormalConjectures.ErdosProblems.«218»
+          import TaskSupport
+
+          namespace Bounty
+
+          theorem target : fcTypeOfName% "Erdos218.erdos_218.variants.ge" := by
+            sorry
+
+          end Bounty
+          LEAN
+          {
+            printf '%s\n' 'import FormalConjectures.ErdosProblems.«218»' 'import TaskSupport' '' 'namespace Bounty'
+            cat Main.lean
+            printf '%s\n' '' 'end Bounty'
+          } > cmp-workspace/Solution.lean
+          cat > cmp-workspace/comparator-config.json <<'JSON'
+          {
+            "challenge_module": "Challenge",
+            "solution_module": "Solution",
+            "theorem_names": ["Bounty.target"],
+            "definition_names": [],
+            "permitted_axioms": ["propext", "Quot.sound", "Classical.choice"],
+            "enable_nanoda": false
+          }
+          JSON
+          FC_PATH="$(realpath formal-conjectures)"
+          cat > cmp-workspace/lakefile.toml <<EOF
+          name = "erdos218_pinned_comparator_lab"
+          version = "0.1.0"
+
+          [[require]]
+          name = "formal_conjectures"
+          path = "$FC_PATH"
+
+          [[lean_lib]]
+          name = "TaskSupport"
+
+          [[lean_lib]]
+          name = "Challenge"
+
+          [[lean_lib]]
+          name = "Solution"
+          EOF
+          cd cmp-workspace
+          lake update
+          export COMPARATOR_LANDRUN="$(realpath ../comparator/scripts/fake-landrun.sh)"
+          export COMPARATOR_LEAN4EXPORT="$(realpath ../lean4export/.lake/build/bin/lean4export)"
+          lake env ../comparator/.lake/build/bin/comparator comparator-config.json \
+            2>&1 | tee ../pinned-comparator.log
+
+      - name: Upload pinned replay evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: erdos218-production-pinned-comparator
+          path: |
+            manifest.json
+            pinned-comparator.log
+          retention-days: 7
