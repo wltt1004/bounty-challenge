@@ -93,6 +93,7 @@ jobs:
           lake update
           lake exe cache get
           lake build FormalConjectures
+          lake env lean TaskSupport.lean
           lake env lean Solution.lean 2>&1 | tee ../solution-build.log
 
       - name: Inspect axiom closure in pinned environment
