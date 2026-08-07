@@ -93,34 +93,90 @@ jobs:
           LEAN
           lean --trust=0 Bug.lean 2>&1 | tee bug.log
 
-      - name: Test ordinary-source candidates
+      - name: Test closed construction using only policy-admitted run_meta
         shell: bash
         run: |
-          set -uxo pipefail
+          set -euxo pipefail
+          cat > RunMetaClosed.lean <<'LEAN'
+          import Lean
+          open Lean
 
-          cat > OpaqueNoBody.lean <<'LEAN'
-          opaque impossible : False
-          theorem boom : False := impossible
+          namespace Bounty
+
+          inductive P218 : Prop where | mk (b : Bool)
+          structure C218 where b : Bool
+          inductive W218 : Type where | mk (p : P218)
+          inductive L218 (α : Type) (b : Bool) : Type where | mk
+          inductive T218 : Bool → Prop where | mk : T218 true
+
+          def pad218 (e : Expr) (n : Nat) : Expr :=
+            mkApp (mkLambda `x .default (mkConst ``Nat) e) (.lit (.natVal n))
+
+          run_meta
+            let f := pad218 (mkConst ``Bool.false) 78670
+            let t := pad218 (mkConst ``Bool.true) 24083
+            unless f.hash == t.hash && f.approxDepth == t.approxDepth do
+              throwError "hash collision failed"
+            let fw := mkApp (mkConst ``W218.mk) (mkApp (mkConst ``P218.mk) f)
+            let tw := mkApp (mkConst ``W218.mk) (mkApp (mkConst ``P218.mk) t)
+            let w := mkBVar 0
+            let Ew := mkApp (mkConst `Bounty.E218) w
+            let b := mkProj ``C218 0 (mkProj ``C218 0 w)
+            let l := mkApp2 (mkConst ``L218) Ew b
+            let Et := mkForall `w .default (mkConst ``W218) (mkSort 1)
+            let ct := mkForall `w .default (mkConst ``W218) <|
+              mkForall `l .default l (mkApp (mkConst `Bounty.E218) (mkBVar 1))
+            Lean.addDecl <| .inductDecl [] 1 [{
+              name := `Bounty.E218,
+              type := Et,
+              ctors := [{ name := `Bounty.E218.mk, type := ct }]
+            }] false
+            let Et := mkApp (mkConst `Bounty.E218) tw
+            let l := mkApp2 (mkConst ``L218.mk) Et (mkConst ``Bool.true)
+            Lean.addDecl <| .defnDecl {
+              name := `Bounty.e218
+              levelParams := []
+              type := Et
+              value := mkApp2 (mkConst `Bounty.E218.mk) tw l
+              hints := .abbrev
+              safety := .safe
+            }
+            Lean.addDecl <| .defnDecl {
+              name := `Bounty.good218
+              levelParams := []
+              type := mkApp (mkConst ``T218) t
+              value := mkConst ``T218.mk
+              hints := .abbrev
+              safety := .safe
+            }
+            let Ef := mkApp (mkConst `Bounty.E218) fw
+            let Et := mkApp (mkConst `Bounty.E218) tw
+            let a := mkApp2 (mkConst `Bounty.E218.mk) fw
+              (mkProj `Bounty.E218 0 (mkConst `Bounty.e218))
+            let tl := mkApp2 (mkConst ``L218.mk) Et (mkConst ``Bool.true)
+            let b := mkApp2 (mkConst `Bounty.E218.mk) tw tl
+            let cT := mkApp2 (mkConst ``L218) Et t
+            let c := mkApp (mkLambda `l .default cT (mkConst ``Unit.unit)) tl
+            let fl := mkApp2 (mkConst ``L218.mk) Ef f
+            let d := mkApp2 (mkConst `Bounty.E218.mk) fw fl
+            let v := Expr.letE `a Ef a
+              (.letE `b Et b
+                (.letE `c (mkConst ``Unit) c
+                  (.letE `d Ef d (mkConst `Bounty.good218) true) true) true) true
+            Lean.addDecl <| .thmDecl {
+              name := `Bounty.bad218
+              levelParams := []
+              type := mkApp (mkConst ``T218) f
+              value := v
+            }
+
+          theorem false218 : False := nomatch (bad218 : T218 false)
+          #print axioms bad218
+          #print axioms false218
+
+          end Bounty
           LEAN
-          lean --trust=0 OpaqueNoBody.lean > opaque.log 2>&1
-          echo "opaque_exit=$?" | tee -a opaque.log
-
-          cat > RecursiveTheorem.lean <<'LEAN'
-          theorem boom : False := by
-            exact boom
-          LEAN
-          lean --trust=0 RecursiveTheorem.lean > recursive.log 2>&1
-          echo "recursive_exit=$?" | tee -a recursive.log
-
-          cat > NonemptyChoice.lean <<'LEAN'
-          noncomputable opaque impossible : False
-          theorem boom : False := impossible
-          LEAN
-          lean --trust=0 NonemptyChoice.lean > nonempty.log 2>&1
-          echo "nonempty_exit=$?" | tee -a nonempty.log
-
-          cat opaque.log recursive.log nonempty.log
-          exit 0
+          lean --trust=0 RunMetaClosed.lean 2>&1 | tee run-meta-closed.log
 
       - name: Upload laboratory logs
         if: always()
