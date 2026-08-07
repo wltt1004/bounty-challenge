@@ -29,24 +29,83 @@ jobs:
         shell: bash
         run: |
           cat > Main.lean <<'LEAN'
-          private def cachePrimingType218 : Lean.Expr :=
-            let falseE := Lean.mkConst ``False
-            let falseToFalse := .forallE `h falseE falseE .default
-            let identity := .lam `h falseE (.bvar 0) .default
-            .app (.lam `_ falseToFalse falseE .default) identity
+          inductive P218 : Prop where | mk (b : Bool)
+          structure C218 where b : Bool
+          inductive W218 : Type where | mk (p : P218)
+          inductive L218 (α : Type) (b : Bool) : Type where | mk
+          inductive T218 : Bool → Prop where | mk : T218 true
+
+          def pad218 (e : Lean.Expr) (n : Nat) : Lean.Expr :=
+            Lean.mkApp
+              (Lean.mkLambda `x .default (Lean.mkConst ``Nat) e)
+              (.lit (.natVal n))
 
           run_meta
-            let name := `Bounty.opaqueFVarCacheFalse218
-            Lean.addDecl <| .opaqueDecl {
-              name
+            let f := pad218 (Lean.mkConst ``Bool.false) 78670
+            let t := pad218 (Lean.mkConst ``Bool.true) 24083
+            unless f.hash == t.hash && f.approxDepth == t.approxDepth do
+              throwError "hash collision failed"
+            let fw := Lean.mkApp (Lean.mkConst ``W218.mk)
+              (Lean.mkApp (Lean.mkConst ``P218.mk) f)
+            let tw := Lean.mkApp (Lean.mkConst ``W218.mk)
+              (Lean.mkApp (Lean.mkConst ``P218.mk) t)
+            let w := Lean.mkBVar 0
+            let Ew := Lean.mkApp (Lean.mkConst `Bounty.E218) w
+            let b := Lean.mkProj ``C218 0 (Lean.mkProj ``C218 0 w)
+            let l := Lean.mkApp2 (Lean.mkConst ``L218) Ew b
+            let Et := Lean.mkForall `w .default (Lean.mkConst ``W218) (Lean.mkSort 1)
+            let ct := Lean.mkForall `w .default (Lean.mkConst ``W218) <|
+              Lean.mkForall `l .default l
+                (Lean.mkApp (Lean.mkConst `Bounty.E218) (Lean.mkBVar 1))
+            Lean.addDecl <| .inductDecl [] 1 [{
+              name := `Bounty.E218
+              type := Et
+              ctors := [{ name := `Bounty.E218.mk, type := ct }]
+            }] false
+            let Et := Lean.mkApp (Lean.mkConst `Bounty.E218) tw
+            let l := Lean.mkApp2 (Lean.mkConst ``L218.mk) Et (Lean.mkConst ``Bool.true)
+            Lean.addDecl <| .defnDecl {
+              name := `Bounty.e218
               levelParams := []
-              type := cachePrimingType218
-              value := .fvar { name := .num `_kernel_fresh 2 }
-              isUnsafe := false
+              type := Et
+              value := Lean.mkApp2 (Lean.mkConst `Bounty.E218.mk) tw l
+              hints := .abbrev
+              safety := .safe
+            }
+            Lean.addDecl <| .defnDecl {
+              name := `Bounty.good218
+              levelParams := []
+              type := Lean.mkApp (Lean.mkConst ``T218) t
+              value := Lean.mkConst ``T218.mk
+              hints := .abbrev
+              safety := .safe
+            }
+            let Ef := Lean.mkApp (Lean.mkConst `Bounty.E218) fw
+            let Et := Lean.mkApp (Lean.mkConst `Bounty.E218) tw
+            let a := Lean.mkApp2 (Lean.mkConst `Bounty.E218.mk) fw
+              (Lean.mkProj `Bounty.E218 0 (Lean.mkConst `Bounty.e218))
+            let tl := Lean.mkApp2 (Lean.mkConst ``L218.mk) Et (Lean.mkConst ``Bool.true)
+            let b := Lean.mkApp2 (Lean.mkConst `Bounty.E218.mk) tw tl
+            let cT := Lean.mkApp2 (Lean.mkConst ``L218) Et t
+            let c := Lean.mkApp
+              (Lean.mkLambda `l .default cT (Lean.mkConst ``Unit.unit)) tl
+            let fl := Lean.mkApp2 (Lean.mkConst ``L218.mk) Ef f
+            let d := Lean.mkApp2 (Lean.mkConst `Bounty.E218.mk) fw fl
+            let v := Lean.Expr.letE `a Ef a
+              (.letE `b Et b
+                (.letE `c (Lean.mkConst ``Unit) c
+                  (.letE `d Ef d (Lean.mkConst `Bounty.good218) true) true) true) true
+            Lean.addDecl <| .thmDecl {
+              name := `Bounty.bad218
+              levelParams := []
+              type := Lean.mkApp (Lean.mkConst ``T218) f
+              value := v
             }
 
+          theorem false218 : False := nomatch (bad218 : T218 false)
+
           theorem target : fcTypeOfName% "Erdos218.erdos_218.variants.ge" := by
-            exact False.elim opaqueFVarCacheFalse218
+            exact False.elim false218
           LEAN
           cat Main.lean
 
@@ -102,12 +161,13 @@ jobs:
           set -euxo pipefail
           cat > formal-conjectures/Inspect.lean <<'LEAN'
           import Solution
-          #print axioms Bounty.opaqueFVarCacheFalse218
+          #print axioms Bounty.bad218
+          #print axioms Bounty.false218
           #print axioms Bounty.target
           LEAN
           cd formal-conjectures
           lake env lean Inspect.lean 2>&1 | tee ../axioms.log
-          test "$(grep -cF 'does not depend on any axioms' ../axioms.log)" -ge 2
+          test "$(grep -cF 'does not depend on any axioms' ../axioms.log)" -ge 3
 
       - name: Upload pinned laboratory evidence
         if: always()
