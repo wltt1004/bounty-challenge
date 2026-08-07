@@ -92,6 +92,7 @@ jobs:
           cd formal-conjectures
           lake update
           lake exe cache get
+          lake build FormalConjectures
           lake env lean Solution.lean 2>&1 | tee ../solution-build.log
 
       - name: Inspect axiom closure in pinned environment
@@ -105,7 +106,7 @@ jobs:
           LEAN
           cd formal-conjectures
           lake env lean Inspect.lean 2>&1 | tee ../axioms.log
-          grep -F "does not depend on any axioms" ../axioms.log
+          test "$(grep -cF 'does not depend on any axioms' ../axioms.log)" -ge 2
 
       - name: Upload pinned laboratory evidence
         if: always()
