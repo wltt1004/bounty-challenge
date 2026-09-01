@@ -1,0 +1,10 @@
+name = "erdos1004_contribution_test"
+defaultTargets = ["Erdos1004ContributionTest"]
+
+[[require]]
+name = "formal_conjectures"
+git = "https://github.com/google-deepmind/formal-conjectures.git"
+rev = "379fc0298dc146df549e7061c3ede0353a5bb51f"
+
+[[lean_lib]]
+name = "Erdos1004ContributionTest"
