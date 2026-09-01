@@ -1,0 +1,7 @@
+{
+  "kind": "partial-proof",
+  "mode": "either",
+  "parents": [],
+  "target": "erdos-1004",
+  "title": "Exact collision-cover reduction, first-moment bound, and GHP obstruction API for Erdős 1004"
+}
