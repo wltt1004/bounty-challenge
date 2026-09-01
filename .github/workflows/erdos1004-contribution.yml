@@ -17,8 +17,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: leanprover/lean-action@v1
-        with:
-          lake-package-directory: lean-test
-          build: true
-          use-mathlib-cache: true
+      - name: Install Elan and Lean
+        run: |
+          curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh -s -- -y
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+      - name: Update pinned dependencies
+        working-directory: lean-test
+        run: lake update
+      - name: Download Mathlib cache
+        working-directory: lean-test
+        run: lake exe cache get
+      - name: Compile contribution
+        working-directory: lean-test
+        run: lake build
