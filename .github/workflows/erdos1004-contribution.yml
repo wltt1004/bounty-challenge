@@ -35,6 +35,9 @@ jobs:
       - name: Download Mathlib cache
         working-directory: formal-conjectures
         run: lake exe cache get
+      - name: Build the pinned target module
+        working-directory: formal-conjectures
+        run: lake build 'FormalConjectures.ErdosProblems.«1004»'
       - name: Compile contribution against pinned target
         working-directory: formal-conjectures
         run: lake env lean Erdos1004ContributionTest.lean
