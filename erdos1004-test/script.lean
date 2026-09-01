@@ -117,7 +117,7 @@ theorem totient_four_mul_sub_two_eq_totient_four_mul
   have hcollision := totient_schinzel_even_shift
     (k := 2) even_two hpprime hqprime hpq hcop2p hcop2q
   have hleft : (2 * p - 1) * 2 = 4 * p - 2 := by omega
-  have hright : (2 * p - 1) * 2 + 2 = 4 * p := by omega
+  have hright : 4 * p - 2 + 2 = 4 * p := by omega
   rw [hleft, hright] at hcollision
   exact hcollision
 
