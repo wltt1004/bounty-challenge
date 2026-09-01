@@ -78,7 +78,7 @@
 +      (collisionCoveredStarts x (requestedRunLength x c)).card = x + 1 := by
 +  simp only [true_iff,
 +    exists_isDistinctTotientRun_iff_collisionCoveredStarts_card_lt,
-+    not_forall, not_imp, not_eventually,
++    not_forall, _root_.not_imp, not_eventually,
 +    not_collisionCoveredStarts_card_lt_iff_eq]
 +
 +/-- Full collision coverage is exactly the local all-starts collision condition. -/
