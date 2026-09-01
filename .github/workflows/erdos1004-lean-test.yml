@@ -1,0 +1,53 @@
+name: Erdos 1004 Lean contribution test
+
+on:
+  push:
+    branches:
+      - erdos-1004-contribution-test
+    paths:
+      - 'erdos1004-test/**'
+      - '.github/workflows/erdos1004-lean-test.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  elaborate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out test source
+        uses: actions/checkout@v4
+
+      - name: Install elan
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -sSf https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh \
+            | sh -s -- -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Build pinned Formal Conjectures workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          export PATH="$HOME/.elan/bin:$PATH"
+          git init -q formal-conjectures
+          git -C formal-conjectures remote add origin \
+            https://github.com/google-deepmind/formal-conjectures.git
+          git -C formal-conjectures fetch -q --depth 1 origin \
+            379fc0298dc146df549e7061c3ede0353a5bb51f
+          git -C formal-conjectures checkout -q FETCH_HEAD
+          cd formal-conjectures
+          lake exe cache get || true
+          lake build
+
+      - name: Elaborate contribution source
+        shell: bash
+        run: |
+          set -euo pipefail
+          export PATH="$HOME/.elan/bin:$PATH"
+          cd formal-conjectures
+          lake env lean --json --memory=8192 --timeout=400000 \
+            "$GITHUB_WORKSPACE/erdos1004-test/script.lean"
