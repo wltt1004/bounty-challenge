@@ -43,6 +43,23 @@ jobs:
       - name: Compile contribution against pinned target
         working-directory: formal-conjectures
         run: lake env lean Erdos1004ContributionTest.lean
+      - name: Run official contribution static preflight
+        run: |
+          git clone --depth=1 --recurse-submodules --shallow-submodules \
+            https://github.com/conjectures-io/conjectures-contribution.git \
+            contribution-tool
+          contribution-tool/install.sh
+          mkdir -p preflight-draft
+          cp lean-test/Erdos1004ContributionTest.lean preflight-draft/script.lean
+          cp contribution-draft/draft.json preflight-draft/draft.json
+          cp contribution-draft/sources.md preflight-draft/sources.md
+          "$HOME/.local/bin/contrib" key generate --path /tmp/contribution-author.key
+          cd contribution-tool
+          PROMOTED=$("$HOME/.local/bin/contrib" promote erdos-1004 \
+            --from "$GITHUB_WORKSPACE/preflight-draft" \
+            --key /tmp/contribution-author.key \
+            --no-reward)
+          "$HOME/.local/bin/contrib" check "$PROMOTED"
       - name: Assemble promotion-ready draft
         run: |
           mkdir -p artifact/drafts/erdos-1004
