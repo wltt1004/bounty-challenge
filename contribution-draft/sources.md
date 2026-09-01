@@ -15,14 +15,16 @@
   φ(n) = φ(n+k)*, Number Theory in Progress, vol. 2 (1999), 867–882:
   https://math.dartmouth.edu/~carlp/phi.pdf
 - Eric Li, *Rank Amplification for Shifted Equal Values of Euler's Totient
-  Function*, arXiv:2606.23681:
+  Function*, arXiv:2606.23681v2:
   https://arxiv.org/abs/2606.23681
-- Eric Li's Apache-2.0 Lean formalization accompanying that paper:
-  https://github.com/ericlisg/RankAmplificationTotient
+- Eric Li's Apache-2.0 Lean formalization accompanying that paper, pinned here
+  at commit `5f06df5c7d745e0cfb7718556159a8f3d704f6c9`:
+  https://github.com/ericlisg/RankAmplificationTotient/tree/5f06df5c7d745e0cfb7718556159a8f3d704f6c9
 
 The same-prime-support affine construction in `GHPDiagonal` is an adaptation of
 the Graham–Holt–Pomerance diagonal described in the paper and of its organization
-in Eric Li's formalization. The definitions and proofs here are rewritten as a
+in the external formalization's `Definitions.lean`, `Elementary.lean`, and
+`DiagonalTransfer.lean`. The definitions and proofs here are rewritten as a
 self-contained target-facing API in the pinned Formal Conjectures environment.
 In particular, this contribution does not import the external repository.
 
