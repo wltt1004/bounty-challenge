@@ -56,7 +56,7 @@
  /-- Quantitative first-moment lower bound for the number of distinct-run starts. -/
  theorem weightedCollisionSum_lower_bound_good_starts (x K : ℕ) :
      x + 1 - weightedCollisionSum x K ≤
-@@ -534,6 +583,35 @@
+@@ -534,6 +583,36 @@
      exact (isDistinctTotientRun_iff_not_hasShiftedTotientCollision n K).mp
        hdistinct (hall n hn)
  
@@ -80,7 +80,9 @@
 +    exists_isDistinctTotientRun_iff_collisionCoveredStarts_card_lt,
 +    not_forall, not_eventually,
 +    not_collisionCoveredStarts_card_lt_iff_eq]
-+  rfl
++  constructor <;>
++    rintro ⟨c, hc, hfrequent⟩ <;>
++    exact ⟨c, hc, hfrequent⟩
 +
 +/-- Full collision coverage is exactly the local all-starts collision condition. -/
 +theorem allStartsHaveCollision_iff_collisionCoveredStarts_card_eq (x K : ℕ) :
