@@ -1,0 +1,93 @@
+--- a/lean-test/Erdos1004ContributionTest.lean
++++ b/lean-test/Erdos1004ContributionTest.lean
+@@ -230,6 +230,55 @@
+       (collisionCoveredStarts_subset_candidateStarts x K),
+     card_candidateStarts]
+ 
++/-- A desired run exists exactly when the collision cover does not fill all
++`x+1` candidate starts. -/
++theorem exists_isDistinctTotientRun_iff_collisionCoveredStarts_card_lt
++    (x K : ℕ) :
++    (∃ n ≤ x, Erdos1004.IsDistinctTotientRun n K) ↔
++      (collisionCoveredStarts x K).card < x + 1 := by
++  constructor
++  · rintro ⟨n, hn, hrun⟩
++    have hnmem : n ∈ distinctTotientRunStarts x K :=
++      mem_distinctTotientRunStarts.mpr ⟨hn, hrun⟩
++    have hpos : 0 < (distinctTotientRunStarts x K).card :=
++      Finset.card_pos.mpr ⟨n, hnmem⟩
++    rw [distinctTotientRunStarts_card_eq] at hpos
++    omega
++  · intro hcard
++    have hpos : 0 < (distinctTotientRunStarts x K).card := by
++      rw [distinctTotientRunStarts_card_eq]
++      omega
++    obtain ⟨n, hn⟩ := Finset.card_pos.mp hpos
++    rcases mem_distinctTotientRunStarts.mp hn with ⟨hnx, hrun⟩
++    exact ⟨n, hnx, hrun⟩
++
++/-- Every candidate run fails exactly when the collision cover has full
++cardinality `x+1`. -/
++theorem no_distinct_run_iff_collisionCoveredStarts_card_eq (x K : ℕ) :
++    (¬∃ n ≤ x, Erdos1004.IsDistinctTotientRun n K) ↔
++      (collisionCoveredStarts x K).card = x + 1 := by
++  have hle : (collisionCoveredStarts x K).card ≤ x + 1 := by
++    calc
++      (collisionCoveredStarts x K).card ≤ (candidateStarts x).card :=
++        Finset.card_le_card
++          (collisionCoveredStarts_subset_candidateStarts x K)
++      _ = x + 1 := card_candidateStarts x
++  rw [exists_isDistinctTotientRun_iff_collisionCoveredStarts_card_lt]
++  omega
++
++/-- The collision cover cannot have cardinality above the candidate set, so
++failure of the strict inequality is equivalent to full coverage. -/
++theorem not_collisionCoveredStarts_card_lt_iff_eq (x K : ℕ) :
++    (¬(collisionCoveredStarts x K).card < x + 1) ↔
++      (collisionCoveredStarts x K).card = x + 1 := by
++  have hle : (collisionCoveredStarts x K).card ≤ x + 1 := by
++    calc
++      (collisionCoveredStarts x K).card ≤ (candidateStarts x).card :=
++        Finset.card_le_card
++          (collisionCoveredStarts_subset_candidateStarts x K)
++      _ = x + 1 := card_candidateStarts x
++  omega
++
+ /-- Quantitative first-moment lower bound for the number of distinct-run starts. -/
+ theorem weightedCollisionSum_lower_bound_good_starts (x K : ℕ) :
+     x + 1 - weightedCollisionSum x K ≤
+@@ -534,6 +583,34 @@
+     exact (isDistinctTotientRun_iff_not_hasShiftedTotientCollision n K).mp
+       hdistinct (hall n hn)
+ 
++/-- The exact positive target is equivalent to saying that the finite collision
++cover is eventually not full at every positive logarithmic exponent. -/
++theorem erdos_1004_iff_eventually_collisionCoveredStarts_card_lt :
++    (True ↔ ∀ c > (0 : ℝ), ∀ᶠ x : ℕ in atTop, ∃ n ≤ x,
++      Erdos1004.IsDistinctTotientRun n (requestedRunLength x c)) ↔
++    (True ↔ ∀ c > (0 : ℝ), ∀ᶠ x : ℕ in atTop,
++      (collisionCoveredStarts x (requestedRunLength x c)).card < x + 1) := by
++  simp_rw [exists_isDistinctTotientRun_iff_collisionCoveredStarts_card_lt]
++
++/-- The exact negation of Erdős 1004 is equivalent to full collision coverage
++occurring frequently for one positive logarithmic exponent. -/
++theorem erdos_1004_false_iff_exists_frequently_collisionCover_full :
++    (¬(True ↔ ∀ d > (0 : ℝ), ∀ᶠ x : ℕ in atTop, ∃ n ≤ x,
++      Erdos1004.IsDistinctTotientRun n (requestedRunLength x d))) ↔
++    ∃ c > (0 : ℝ), ∃ᶠ x : ℕ in atTop,
++      (collisionCoveredStarts x (requestedRunLength x c)).card = x + 1 := by
++  simp only [true_iff,
++    exists_isDistinctTotientRun_iff_collisionCoveredStarts_card_lt,
++    not_forall, not_imp, not_eventually,
++    not_collisionCoveredStarts_card_lt_iff_eq]
++
++/-- Full collision coverage is exactly the local all-starts collision condition. -/
++theorem allStartsHaveCollision_iff_collisionCoveredStarts_card_eq (x K : ℕ) :
++    AllStartsHaveCollision x K ↔
++      (collisionCoveredStarts x K).card = x + 1 := by
++  rw [← no_distinct_run_iff_allStartsHaveCollision,
++    no_distinct_run_iff_collisionCoveredStarts_card_eq]
++
+ /-- The weighted first-moment estimate is a complete sufficient analytic
+ interface for the positive direction of Erdős 1004. -/
+ theorem erdos_1004_of_eventually_weightedCollisionSum_lt
