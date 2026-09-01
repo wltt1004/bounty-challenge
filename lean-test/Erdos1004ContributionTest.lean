@@ -1,23 +1,23 @@
 import Mathlib
 import FormalConjectures.ErdosProblems.«1004»
 
-open Filter Real Nat
-
-namespace Contribution.Erdos1004Collision
-
 /-!
 # Collision and first-moment API for Erdős problem 1004
 
 A run fails exactly when two different integers in its interval have the same
-Euler totient.  This file converts that observation into a finite covering
+Euler totient. This file converts that observation into a finite covering
 problem indexed by the shift `h`, proves the corresponding weighted union
 bound, and exposes sufficient interfaces for both the positive and negative
 forms of Erdős problem 1004.
 
-The final section records the Graham--Holt--Pomerance same-support affine
-family, including its classical shift-two specialization, and connects those
+The final sections record the Graham--Holt--Pomerance same-support affine
+family, including its classical shift-two specialization, and connect those
 collisions directly to the run predicate used by the target.
 -/
+
+open Filter Real Nat
+
+namespace Contribution.Erdos1004Collision
 
 section CollisionCore
 
@@ -65,9 +65,9 @@ theorem collisionSpoils_iff_start_mem (m h n K : ℕ) :
   unfold CollisionSpoils
   omega
 
-/-- A positive shift fitting in a length-`K` run is strictly smaller than `K`. -/
+/-- Any shifted pair fitting in a length-`K` run has shift strictly below `K`. -/
 theorem shift_lt_runLength_of_collisionSpoils {m h n K : ℕ}
-    (hh : 0 < h) (hspoil : CollisionSpoils m h n K) : h < K := by
+    (hspoil : CollisionSpoils m h n K) : h < K := by
   unfold CollisionSpoils at hspoil
   omega
 
@@ -102,13 +102,14 @@ theorem mem_shiftedTotientCollisionSet {X h m : ℕ} :
 
 /-- Candidate starts up to `x` spoiled by one fixed shifted collision. -/
 def spoiledStarts (x K m h : ℕ) : Finset ℕ :=
-  (candidateStarts x).filter fun n ↦ CollisionSpoils m h n K
+  (candidateStarts x).filter fun n ↦
+    n + 1 ≤ m ∧ m + h ≤ n + K
 
 @[simp]
 theorem mem_spoiledStarts {x K m h n : ℕ} :
     n ∈ spoiledStarts x K m h ↔
       n ≤ x ∧ CollisionSpoils m h n K := by
-  simp [spoiledStarts]
+  simp [spoiledStarts, CollisionSpoils]
 
 /-- All starts up to `x` spoiled by some positive shift below `K`.
 Only collision left endpoints up to `x+K` can be relevant. -/
@@ -133,7 +134,7 @@ theorem mem_collisionCoveredStarts_iff {x K n : ℕ} :
     have hn_data := mem_spoiledStarts.mp hn
     exact ⟨hn_data.1, m, h, by omega, hn_data.2, hm_data.2.2⟩
   · rintro ⟨hnx, m, h, hh, hspoil, htotient⟩
-    have hhK : h < K := shift_lt_runLength_of_collisionSpoils hh hspoil
+    have hhK : h < K := shift_lt_runLength_of_collisionSpoils hspoil
     have hm_lower : 1 ≤ m := by
       unfold CollisionSpoils at hspoil
       omega
@@ -156,25 +157,22 @@ theorem collisionCoveredStarts_subset_candidateStarts (x K : ℕ) :
 
 /-- Starts up to `x` whose totient run of length `K` is distinct. -/
 def distinctTotientRunStarts (x K : ℕ) : Finset ℕ :=
-  (candidateStarts x).filter fun n ↦ Erdos1004.IsDistinctTotientRun n K
+  candidateStarts x \ collisionCoveredStarts x K
 
 @[simp]
 theorem mem_distinctTotientRunStarts {x K n : ℕ} :
     n ∈ distinctTotientRunStarts x K ↔
       n ≤ x ∧ Erdos1004.IsDistinctTotientRun n K := by
-  simp [distinctTotientRunStarts]
+  rw [distinctTotientRunStarts, Finset.mem_sdiff, mem_candidateStarts,
+    mem_collisionCoveredStarts_iff,
+    isDistinctTotientRun_iff_not_hasShiftedTotientCollision]
+  tauto
 
 /-- The good starts are exactly the complement of the collision cover among
 candidate starts. -/
 theorem distinctTotientRunStarts_eq_sdiff_collisionCoveredStarts (x K : ℕ) :
     distinctTotientRunStarts x K =
-      candidateStarts x \ collisionCoveredStarts x K := by
-  classical
-  ext n
-  simp only [mem_distinctTotientRunStarts, Finset.mem_sdiff,
-    mem_candidateStarts, mem_collisionCoveredStarts_iff]
-  rw [isDistinctTotientRun_iff_not_hasShiftedTotientCollision]
-  tauto
+      candidateStarts x \ collisionCoveredStarts x K := rfl
 
 /-- One collision with shift `h` spoils at most `K-h` starts. -/
 theorem spoiledStarts_card_le (x K m h : ℕ) :
@@ -250,7 +248,8 @@ theorem exists_isDistinctTotientRun_of_weightedCollisionSum_lt
     omega
   rw [Finset.card_pos] at hpositive
   obtain ⟨n, hn⟩ := hpositive
-  exact mem_distinctTotientRunStarts.mp hn
+  rcases mem_distinctTotientRunStarts.mp hn with ⟨hnx, hrun⟩
+  exact ⟨n, hnx, hrun⟩
 
 /-- If every candidate run fails, the first-moment quantity must be at least
 `x+1`. -/
@@ -421,9 +420,9 @@ theorem ghpLeft_mem_shiftedTotientCollisionSet {X h j r : ℕ}
     (hX : ghpLeft h j r ≤ X) :
     ghpLeft h j r ∈ shiftedTotientCollisionSet X h := by
   have hj : 1 ≤ j := hparam.1.1
-  have hleft_pos : 1 ≤ ghpLeft h j r := by
+  have hleft_pos : 0 < ghpLeft h j r := by
     unfold ghpLeft
-    omega
+    exact Nat.mul_pos (by omega) (Nat.succ_pos _)
   apply mem_shiftedTotientCollisionSet.mpr
   refine ⟨hleft_pos, hX, ?_⟩
   rw [ghpLeft_add_shift_eq_ghpRight]
@@ -453,7 +452,10 @@ theorem classical_h_two_isGHPParameter {t : ℕ}
       Nat.coprime_pow_right_iff (by norm_num)]
     exact hoddp.coprime_two_right
   refine ⟨?_, ?_, ?_, ?_, ?_⟩
-  · norm_num [IsSameSupportIndex, primeSupport]
+  · refine ⟨by norm_num, ?_⟩
+    change Nat.primeFactors 2 = Nat.primeFactors 4
+    simpa using
+      (Nat.primeFactors_pow 2 (k := 2) (by norm_num)).symm
   · rw [hA]
     convert hq using 1 <;> omega
   · rw [hB]
@@ -505,7 +507,7 @@ end ClassicalShiftTwo
 section TargetInterfaces
 
 /-- The run length occurring in the exact Erdős 1004 statement. -/
-def requestedRunLength (x : ℕ) (c : ℝ) : ℕ :=
+noncomputable def requestedRunLength (x : ℕ) (c : ℝ) : ℕ :=
   ⌊(Real.log (x : ℝ)) ^ c⌋₊
 
 /-- Every candidate start up to `x` contains a shifted equal-totient pair. -/
