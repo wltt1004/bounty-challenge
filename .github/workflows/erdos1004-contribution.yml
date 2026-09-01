@@ -6,6 +6,8 @@ on:
       - erdos1004-contribution-work
     paths:
       - "lean-test/**"
+      - "contribution-draft/**"
+      - "ERDOS1004_SUBMISSION.md"
       - ".github/workflows/erdos1004-contribution.yml"
   workflow_dispatch:
 
@@ -41,3 +43,21 @@ jobs:
       - name: Compile contribution against pinned target
         working-directory: formal-conjectures
         run: lake env lean Erdos1004ContributionTest.lean
+      - name: Assemble promotion-ready draft
+        run: |
+          mkdir -p artifact/drafts/erdos-1004
+          cp lean-test/Erdos1004ContributionTest.lean \
+            artifact/drafts/erdos-1004/script.lean
+          cp contribution-draft/draft.json \
+            artifact/drafts/erdos-1004/draft.json
+          cp contribution-draft/sources.md \
+            artifact/drafts/erdos-1004/sources.md
+          cp ERDOS1004_SUBMISSION.md artifact/SUBMISSION.md
+          find artifact -type f -print -exec sha256sum {} \;
+      - name: Upload promotion-ready draft
+        uses: actions/upload-artifact@v4
+        with:
+          name: erdos1004-collision-contribution-draft
+          path: artifact/
+          if-no-files-found: error
+          retention-days: 30
