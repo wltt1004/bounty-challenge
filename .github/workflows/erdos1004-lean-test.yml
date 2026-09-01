@@ -28,7 +28,7 @@ jobs:
             | sh -s -- -y --default-toolchain none
           echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
 
-      - name: Build pinned Formal Conjectures workspace
+      - name: Check out pinned Formal Conjectures
         shell: bash
         run: |
           set -euo pipefail
@@ -39,9 +39,36 @@ jobs:
           git -C formal-conjectures fetch -q --depth 1 origin \
             379fc0298dc146df549e7061c3ede0353a5bb51f
           git -C formal-conjectures checkout -q FETCH_HEAD
+
+      - name: Restore Lean workspace cache
+        id: lean-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            formal-conjectures/.lake
+            ~/.elan/toolchains
+          key: erdos1004-lean427-${{ runner.os }}-379fc029-v2
+
+      - name: Build target dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          export PATH="$HOME/.elan/bin:$PATH"
           cd formal-conjectures
           lake exe cache get || true
-          lake build
+          if ! lake build 'FormalConjectures.ErdosProblems.«1004»'; then
+            echo 'Single-module target syntax was unavailable; building the library.'
+            lake build
+          fi
+
+      - name: Save Lean workspace cache
+        if: steps.lean-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            formal-conjectures/.lake
+            ~/.elan/toolchains
+          key: erdos1004-lean427-${{ runner.os }}-379fc029-v2
 
       - name: Elaborate contribution source
         shell: bash
